@@ -3,7 +3,7 @@ import * as d3 from 'd3/build/d3.node.js';
 import './Chart.css';
 
 class TimeSeries {
-    constructor(data, accessors, options) {
+    constructor(name, data, accessors, options) {
         this.data = data;
         this.accessors = accessors;
         this.options = options;
@@ -56,22 +56,19 @@ export default class Chart extends Component {
         //y.domain(d3.extent(data, function(d) { return d.value; }));
 
         // Draw the y Grid lines
-        svg.append("g")
-            .attr("class", "grid")
+        svg.select(".grid")
             .call(d3.axisLeft(y)
                     .tickSize(-width, 0, 0)
                     .tickFormat("")
-            )
+            );
 
-        svg.append("g")
-            .attr("class", "x axis")
-            .attr("transform", "translate(0," + this.height + ")")
+        svg.select(".x.axis")
+            .attr("transform", "translate(0," + height + ")")
             .call(xAxis)
             .selectAll(".tick text")
             .call(this.wrap, 35);
 
-        svg.append("g")
-            .attr("class","xMinorAxis")
+        svg.select(".xMinorAxis")
             //.style({ 'stroke': 'Black', 'fill': 'none', 'stroke-width': '1px'})
             .style('stroke', 'Black')
             .style('fill', 'none')
@@ -80,20 +77,8 @@ export default class Chart extends Component {
             .call(xMinorAxis)
             .selectAll("text").remove();
 
-        svg.append("g")
-            .attr("class", "y axis")
-            .call(yAxis)
-            //text label for the y-axis inside chart
-            /*
-            .append("text")
-            .attr("transform", "rotate(-90)")
-            .attr("y", 6)
-            .attr("dy", ".71em")
-            .style("text-anchor", "end")
-            .style("font-size", "16px")
-            .style("background-color","red")
-            .text("road length (km)");
-            */
+        svg.select(".y.axis")
+            .call(yAxis);
     }
 
     drawSeries(s, i) {
@@ -105,33 +90,16 @@ export default class Chart extends Component {
             accessorY = s.accessors.y,
             x = this.scaleX,
             y = this.scaleY;
-/*
-        console.log([svg,
-            width,
-            height,
-            accessorX,
-            accessorY,
-            xAxis,
-            yAxis,
-            xMinorAxis,
-            x,
-            y]);
-*/
 
         var line = d3.line()
             .x((d) => x(accessorX(d)))
             .y((d) => y(accessorY(d)));
-            //.x((d) => x(this.props.accessorX(d)))
-            //.y((d) => y(this.props.accessorY(d)));
 
         svg.append("path")
             .datum(data)
             .attr("class", "line")
             .attr("d", line);
 
-        //taken from http://bl.ocks.org/mbostock/3887118
-        //and http://www.d3noob.org/2013/01/change-line-chart-into-scatter-plot.html
-        //creating a group(g) and will append a circle and 2 lines inside each group
         var g = this.rings = svg.selectAll()
             .data(data).enter().append("g");
 
@@ -201,21 +169,23 @@ export default class Chart extends Component {
             width = this.width = this.props.width - margin.left - margin.right,
             height = this.height = this.props.height - margin.top - margin.bottom;
 
+        // create scales
         var x = this.scaleX = d3.scaleTime()
             .range([0, width]);
 
         var y = this.scaleY = d3.scaleLinear()
             .range([height, 0]);
 
+        // create axes
         this.axisX = d3.axisBottom(x)
             .tickArguments([d3.timeHour.every(24)])
-            //makes the xAxis ticks a little longer than the xMinorAxis ticks
             .tickSize(10);
 
         this.axisXMinor = d3.axisBottom(x)
             .tickArguments([d3.timeHour.every(12)]);
 
         this.axisY = d3.axisLeft(y);
+
 
         //format for tooltip
         //https://github.com/mbostock/d3/wiki/Time-Formatting
@@ -233,14 +203,16 @@ export default class Chart extends Component {
             .attr("width", width + margin.left + margin.right)
             .attr("height", height + margin.top + margin.bottom);
 
-        var domain = svg.append("g")
+        var range = svg.append("g")
             .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
 
         var mouseCatcher = svg.append("g")
             .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
 
-        svg = this.svg = domain;
+        svg = this.svg = range;
 
+        // create grid and axes container
+        ["grid", "x axis", "xMinorAxis", "y axis"].forEach((c) => svg.append("g").attr("class", c));
 
         //http://www.d3noob.org/2012/12/adding-axis-labels-to-d3js-graph.html
         svg.append("text")      // text label for the x-axis
@@ -275,11 +247,12 @@ export default class Chart extends Component {
             .on('mouseout', this.graphMouseOut);
 
 
-        var onDataLoadComplete = (res) => {
+        var onDataLoadComplete = (name, res) => {
             var data = res[0].metricValues;
             data.forEach((d) => d.date = new Date(d.startTimeInMillis));
 
             this.addSeries(new TimeSeries(
+                name,
                 data,
                 {
                     x: (d) => d.date,
@@ -290,12 +263,11 @@ export default class Chart extends Component {
         //reading in CSV which contains data
         fetch(process.env.PUBLIC_URL + "/data/atvp1xabts513.json")
         .then((res) => res.json())
-        .then(onDataLoadComplete);
+        .then((res) => onDataLoadComplete("513", res));
 
         fetch(process.env.PUBLIC_URL + "/data/atvp1xabts512.json")
         .then((res) => res.json())
-        .then(onDataLoadComplete);
-
+        .then((res) => onDataLoadComplete("512", res));
     }
 
     //http://bl.ocks.org/mbostock/7555321
