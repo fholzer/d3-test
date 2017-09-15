@@ -72,7 +72,7 @@ export default class Chart extends Component {
                     .tickFormat("")
             )
 
-        var line = this.line = d3.line()
+        var line = d3.line()
             .x((d) => x(accessorX(d)))
             .y((d) => y(accessorY(d)));
             //.x((d) => x(this.props.accessorX(d)))
@@ -81,7 +81,7 @@ export default class Chart extends Component {
         svg.append("path")
             .datum(data)
             .attr("class", "line")
-            .attr("d", this.line);
+            .attr("d", line);
 
         //taken from http://bl.ocks.org/mbostock/3887118
         //and http://www.d3noob.org/2013/01/change-line-chart-into-scatter-plot.html
@@ -192,28 +192,25 @@ export default class Chart extends Component {
         var y = this.scaleY = d3.scaleLinear()
             .range([height, 0]);
 
-        var xAxis = this.axisX = d3.axisBottom(x)
+        this.axisX = d3.axisBottom(x)
             .tickArguments([d3.timeHour.every(24)])
             //makes the xAxis ticks a little longer than the xMinorAxis ticks
             .tickSize(10);
 
-        var xMinorAxis = this.axisXMinor = d3.axisBottom(x)
+        this.axisXMinor = d3.axisBottom(x)
             .tickArguments([d3.timeHour.every(12)]);
 
-        var yAxis = this.axisY = d3.axisLeft(y);
-
-        //The format in the CSV, which d3 will read
-        var parseDate = d3.timeFormat("%Y-%m-%d %X");
+        this.axisY = d3.axisLeft(y);
 
         //format for tooltip
         //https://github.com/mbostock/d3/wiki/Time-Formatting
         //var formatTime = d3.time.format("%e %b");
-        var formatTime = this.formatTime = d3.timeFormat("%Y-%m-%dT%H:%M:%S%Z");
-        var formatCount = this.formatCount = d3.format(",");
+        this.formatTime = d3.timeFormat("%Y-%m-%dT%H:%M:%S%Z");
+        this.formatCount = d3.format(",");
 
 
         // create required DOM elements
-        var div = this.div = d3.select(this.divNode)
+        this.div = d3.select(this.divNode)
             .attr("class", "tooltip")
             .style("opacity", 0);
 
