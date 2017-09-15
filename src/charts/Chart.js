@@ -31,20 +31,78 @@ export default class Chart extends Component {
         if(!series instanceof TimeSeries) {
             throw new TypeError("Can add only TimerSeries!");
         }
-        this.drawSeries(series);
+        this.s.push(series);
+        this.redraw();
     }
 
-    drawSeries(s) {
-        var data = s.data;
+    redraw() {
+        this.drawAxes();
+        this.s.forEach((s, i) => this.drawSeries(s, i));
+    }
 
+    drawAxes() {
         var svg = this.svg,
             width = this.width,
             height = this.height,
-            accessorX = s.accessors.x,
-            accessorY = s.accessors.y,
             xAxis = this.axisX,
             yAxis = this.axisY,
             xMinorAxis = this.axisXMinor,
+            x = this.scaleX,
+            y = this.scaleY;
+
+        //using imported data to define extent of x and y domains
+        x.domain([d3.min(this.s, (s) => s.domain.x[0]), d3.max(this.s, (s) => s.domain.x[1])]);
+        y.domain([0, d3.max(this.s, (s) => s.domain.y[1]) * 1.05]);
+        //y.domain(d3.extent(data, function(d) { return d.value; }));
+
+        // Draw the y Grid lines
+        svg.append("g")
+            .attr("class", "grid")
+            .call(d3.axisLeft(y)
+                    .tickSize(-width, 0, 0)
+                    .tickFormat("")
+            )
+
+        svg.append("g")
+            .attr("class", "x axis")
+            .attr("transform", "translate(0," + this.height + ")")
+            .call(xAxis)
+            .selectAll(".tick text")
+            .call(this.wrap, 35);
+
+        svg.append("g")
+            .attr("class","xMinorAxis")
+            //.style({ 'stroke': 'Black', 'fill': 'none', 'stroke-width': '1px'})
+            .style('stroke', 'Black')
+            .style('fill', 'none')
+            .style('stroke-width', '1px')
+            .attr("transform", "translate(0," + height + ")")
+            .call(xMinorAxis)
+            .selectAll("text").remove();
+
+        svg.append("g")
+            .attr("class", "y axis")
+            .call(yAxis)
+            //text label for the y-axis inside chart
+            /*
+            .append("text")
+            .attr("transform", "rotate(-90)")
+            .attr("y", 6)
+            .attr("dy", ".71em")
+            .style("text-anchor", "end")
+            .style("font-size", "16px")
+            .style("background-color","red")
+            .text("road length (km)");
+            */
+    }
+
+    drawSeries(s, i) {
+        var data = s.data;
+
+        var svg = this.svg,
+            height = this.height,
+            accessorX = s.accessors.x,
+            accessorY = s.accessors.y,
             x = this.scaleX,
             y = this.scaleY;
 /*
@@ -59,18 +117,6 @@ export default class Chart extends Component {
             x,
             y]);
 */
-        //using imported data to define extent of x and y domains
-        x.domain(s.domain.x);
-        y.domain([0, s.domain.y[1] * 1.05]);
-        //y.domain(d3.extent(data, function(d) { return d.value; }));
-
-        // Draw the y Grid lines
-        svg.append("g")
-            .attr("class", "grid")
-            .call(d3.axisLeft(y)
-                    .tickSize(-width, 0, 0)
-                    .tickFormat("")
-            )
 
         var line = d3.line()
             .x((d) => x(accessorX(d)))
@@ -148,37 +194,6 @@ export default class Chart extends Component {
                 .style("opacity", 0);
         });
 
-        svg.append("g")
-            .attr("class", "x axis")
-            .attr("transform", "translate(0," + this.height + ")")
-            .call(xAxis)
-            .selectAll(".tick text")
-            .call(this.wrap, 35);
-
-        svg.append("g")
-            .attr("class","xMinorAxis")
-            //.style({ 'stroke': 'Black', 'fill': 'none', 'stroke-width': '1px'})
-            .style('stroke', 'Black')
-            .style('fill', 'none')
-            .style('stroke-width', '1px')
-            .attr("transform", "translate(0," + height + ")")
-            .call(xMinorAxis)
-            .selectAll("text").remove();
-
-        svg.append("g")
-            .attr("class", "y axis")
-            .call(yAxis)
-            //text label for the y-axis inside chart
-            /*
-            .append("text")
-            .attr("transform", "rotate(-90)")
-            .attr("y", 6)
-            .attr("dy", ".71em")
-            .style("text-anchor", "end")
-            .style("font-size", "16px")
-            .style("background-color","red")
-            .text("road length (km)");
-            */
     }
 
     componentDidMount() {
@@ -259,12 +274,8 @@ export default class Chart extends Component {
             .on('mousemove', (unk1, unk2, els) => this.graphMouseMove(els))
             .on('mouseout', this.graphMouseOut);
 
-        //reading in CSV which contains data
-        fetch(process.env.PUBLIC_URL + "/data/atvp1xabts513.json")
-        .then(function(res) {
-            return res.json();
-        })
-        .then((res) => {
+
+        var onDataLoadComplete = (res) => {
             var data = res[0].metricValues;
             data.forEach((d) => d.date = new Date(d.startTimeInMillis));
 
@@ -275,7 +286,15 @@ export default class Chart extends Component {
                     y: (d) => d.value
                 }
             ));
-        });
+        }
+        //reading in CSV which contains data
+        fetch(process.env.PUBLIC_URL + "/data/atvp1xabts513.json")
+        .then((res) => res.json())
+        .then(onDataLoadComplete);
+
+        fetch(process.env.PUBLIC_URL + "/data/atvp1xabts512.json")
+        .then((res) => res.json())
+        .then(onDataLoadComplete);
 
     }
 
