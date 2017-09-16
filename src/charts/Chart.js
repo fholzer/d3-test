@@ -2,6 +2,39 @@ import React, { Component } from 'react';
 import * as d3 from 'd3/build/d3.node.js';
 import './Chart.css';
 
+// https://jsfiddle.net/37oLLg1o/2/
+const palettes = [
+	[
+    "#B2DFDB",
+    "#00C8D5",
+    "#03A9F4",
+    "#1D69E7",
+    "#402D9F",
+    "#673AB7",
+    "#9C27B0",
+    "#E91E63"
+	], [
+    "#4CAF50",
+    "#8BC34A",
+    "#CDDC39",
+    "#FFEB3B",
+    "#FFC107",
+    "#FF9800",
+    "#FF5722",
+    "#F44336"
+  ]
+];
+
+var makeColorScale = function(colorPalette, elementCount) {
+    var tmp = d3.scaleLinear()
+        .range([0, elementCount - 1])
+        .domain([0, colorPalette.length - 1]);
+    return d3.scaleLinear()
+        .domain(d3.range(colorPalette.length).map(tmp))
+        .range(colorPalette)
+        .interpolate(d3.interpolateRgb);
+};
+
 class TimeSeries {
     constructor(name, data, accessors, options) {
         this.data = data;
@@ -46,13 +79,64 @@ export default class Chart extends Component {
         if(!series instanceof TimeSeries) {
             throw new TypeError("Can add only TimerSeries!");
         }
+        if(!series.options) {
+            series.options = {};
+        }
+
+        // add to series array
         this.s.push(series);
-        this.redraw();
+
+        // update color scale
+        var colorScale = makeColorScale(palettes[0], this.s.length);
+
+        // set colors
+        this.s.forEach((s, i) => s.options.color = colorScale(i));
+
+        // bind series to DOM
+        var c = this.planes.chart.selectAll(".series")
+            .data(this.s, (s) => s.name);
+
+        // redraw axes
+        this.drawAxes();
+
+        // create containers for new series
+        c.enter().append("g")
+            .attr("class", "series")
+            .nodes().forEach((c) => this.drawSeries(d3.select(c)));
+
+        // remove absent series
+        c.exit().remove();
+
+        // update colors of existing series
+        c.nodes().forEach((c) => this.updateColor(d3.select(c)));
     }
 
     redraw() {
         this.drawAxes();
-        this.s.forEach((s, i) => this.drawSeries(s, i));
+
+        var c = this.planes.chart.selectAll(".series")
+            .data(this.s, (s) => s.name);
+
+        c.enter().append("g")
+            .attr("class", "series")
+            //.nodes().forEach((c) => this.drawSeries(c));
+
+        c.exit().remove();
+
+        c.nodes().forEach((c) => this.drawSeries(c));
+
+        //this.s.forEach((s, i) => this.drawSeries(s, i));
+    }
+
+    updateColor(container) {
+        var s = container.datum();
+        console.log("new color: " + s.options.color);
+
+        container.selectAll("path")
+            .attr("stroke", s.options.color);
+
+        console.log(container.selectAll("circle")
+            .attr("stroke", s.options.color));
     }
 
     drawAxes() {
@@ -92,10 +176,11 @@ export default class Chart extends Component {
             .call(yAxis);
     }
 
-    drawSeries(s, i) {
-        var data = s.data;
+    drawSeries(container) {
+        var s = container.datum(),
+            data = s.data;
 
-        var svg = this.svg,
+        var svg = container,
             height = this.height,
             accessorX = s.accessors.x,
             accessorY = s.accessors.y,
@@ -107,8 +192,9 @@ export default class Chart extends Component {
             .y((d) => y(accessorY(d)));
 
         svg.append("path")
-            .datum(data)
+            .datum(s.data)
             .attr("class", "line")
+            .attr("stroke", s.options.color)
             .attr("d", line);
 
         var g = this.rings = svg.selectAll()
@@ -117,62 +203,10 @@ export default class Chart extends Component {
         //The markers on the line
         g.append("circle")
             .attr("class", "dot")
+            .attr("stroke", s.options.color)
             .attr("r", 2)
-            .attr("cx", function(d) { return x(accessorX(d)); })
-            .attr("cy", function(d) { return y(accessorY(d)); });
-
-        var minX = d3.min(data, accessorX);
-
-        //The horizontal dashed line that appears when a circle marker is moused over
-        g.append("line")
-            .attr("class", "dashedLine x")
-            .attr("x1", function(d) { return x(accessorX(d)); })
-            .attr("y1", function(d) { return y(accessorY(d)); })
-            //d3.min gets the min date from the date x-axis scale
-            .attr("x2", function(d) { return x(minX); })
-            .attr("y2", function(d) { return y(accessorY(d)); });
-
-        //The vertical dashed line that appears when a circle marker is moused over
-        g.append("line")
-            .attr("class", "dashedLine y")
-            .attr("x1", function(d) { return x(accessorX(d)); })
-            .attr("y1", function(d) { return y(accessorY(d)); })
-            .attr("x2", function(d) { return x(accessorX(d)); })
-            .attr("y2", height);
-
-        //circles are selected again to add the mouseover functions
-        /*g.selectAll("circle")
-        .on("mouseover", function(d) {
-            this.div.transition()
-                .duration(200)
-                .style("opacity", .9);
-            this.div.html("value: " + this.formatCount(accessorY(d)) + "<br/>" + this.formatTime(accessorX(d)))
-                .style("left", (d3.event.pageX - 20) + "px")
-                .style("top", (d3.event.pageY + 6) + "px");
-            //selects the horizontal dashed line in the group
-            d3.select(this.nextElementSibling).transition()
-                .duration(200)
-                .style("opacity", .9);
-            //selects the vertical dashed line in the group
-            d3.select(this.nextElementSibling.nextElementSibling).transition()
-                .duration(200)
-                .style("opacity", .9);
-        })
-
-        .on("mouseout", function(d) {
-            this.div.transition()
-                .duration(500)
-                .style("opacity", 0);
-
-            d3.select(this.nextElementSibling).transition()
-                .duration(500)
-                .style("opacity", 0);
-
-            d3.select(this.nextElementSibling.nextElementSibling).transition()
-                .duration(500)
-                .style("opacity", 0);
-        });
-        */
+            .attr("cx", (d) => x(accessorX(d)))
+            .attr("cy", (d) => y(accessorY(d)));
     }
 
     componentDidMount() {
@@ -218,7 +252,7 @@ export default class Chart extends Component {
             .attr("width", width + margin.left + margin.right)
             .attr("height", height + margin.top + margin.bottom);
 
-        var range = this.planes.range = svg.append("g")
+        var range = this.planes.chart = svg.append("g")
             .attr("transform", rangeTranslate);
 
         this.planes.annotations = svg.append("g")
@@ -292,13 +326,16 @@ export default class Chart extends Component {
             ));
         }
         //reading in CSV which contains data
-        fetch(process.env.PUBLIC_URL + "/data/atvp1xabts513.json")
-        .then((res) => res.json())
-        .then((res) => onDataLoadComplete("513", res));
+        var triggerLoad = (number) => {
+            var name = "atvp1xabts" + number;
+            fetch(process.env.PUBLIC_URL + "/data/" + name + ".json")
+            .then((res) => res.json())
+            .then((res) => onDataLoadComplete(name, res));
+        }
 
-        fetch(process.env.PUBLIC_URL + "/data/atvp1xabts512.json")
-        .then((res) => res.json())
-        .then((res) => onDataLoadComplete("512", res));
+        for(var i = 512; i < 520; i++) {
+            triggerLoad(i);
+        }
     }
 
     //http://bl.ocks.org/mbostock/7555321
@@ -328,11 +365,8 @@ export default class Chart extends Component {
     }
 
     graphMouseMove(elements) {
-        //console.log("this", this);
-        //console.log("arguments", arguments);
         var xpos = d3.mouse(elements[0])[0];
         var xdate = this.scaleX.invert(xpos);
-        console.log("x", xdate);
         //console.log(this.rings.selectAll(".dots"))
         this.updateMouseLine(xpos);
         //this.updateTip(xdate);
@@ -378,12 +412,9 @@ export default class Chart extends Component {
         s.enter().append("circle")
             .attr('class','focusring')
             .attr('r',5)
-            .attr('cx',(d) => this.scaleX(d.accessors.x(d.item)))
-            .attr('cy',(d) => this.scaleY(d.accessors.y(d.item)));
 
-        s.transition().duration(50)
-            .attr('cx',(d) => this.scaleX(d.accessors.x(d.item)))
-            .attr('cy',(d) => this.scaleY(d.accessors.y(d.item)));
+        s.attr('cx',(d) => this.scaleX(d.accessors.x(d.item)))
+            .attr('cy',(d) => this.scaleY(d.accessors.y(d.item)))
 
         s.exit().remove();
 

@@ -25,7 +25,6 @@
 
 .line {
   fill: none;
-  stroke: steelblue;
   stroke-width: 3px;
 }
 
@@ -36,7 +35,6 @@
 }
 
 .dot {
-  stroke: #325e82;
   stroke-width: 1.5px;
   fill: #fff;
 }
