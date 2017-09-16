@@ -6,6 +6,22 @@
   stroke-width: 1.5px;
   shape-rendering: crispEdges;
 }
+.axis.minor {
+    stroke-width: 1px;
+}
+
+.mouseline line {
+    stroke: #000;
+    stroke-width: 1px;
+    stroke-dasharray: 3.6;
+    /*opacity: 0;*/
+}
+
+.focusring {
+    fill: none;
+    stroke-width: 2;
+    stroke: red;
+}
 
 .line {
   fill: none;
@@ -28,8 +44,10 @@
 div.tooltip {
   position: absolute;
   text-align: center;
+  /*
   width: 80px;
   height: 55px;
+  */
   padding: 4px;
   font: 16px sans-serif;
   color: white;
