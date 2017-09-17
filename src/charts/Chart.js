@@ -37,12 +37,22 @@ var makeColorScale = function(colorPalette, elementCount) {
 
 class TimeSeries {
     constructor(name, data, accessors, options) {
+        this.name = name;
         this.data = data;
         this.accessors = accessors;
         this.options = options;
         this.domain = {
             x: d3.extent(data, accessors.x),
             y: d3.extent(data, accessors.y)
+        };
+        this.sanityChecks();
+    }
+
+    setAccessors(accessors) {
+        this.accessors = accessors;
+        this.domain = {
+            x: d3.extent(this.data, accessors.x),
+            y: d3.extent(this.data, accessors.y)
         };
         this.sanityChecks();
     }
@@ -75,6 +85,11 @@ export default class Chart extends Component {
         this.s = [];
     }
 
+    setAccessors(accessors) {
+        this.s.forEach((s) => s.setAccessors(accessors));
+        this.redraw();
+    }
+
     addSeries(series) {
         if(!series instanceof TimeSeries) {
             throw new TypeError("Can add only TimerSeries!");
@@ -86,9 +101,8 @@ export default class Chart extends Component {
         // add to series array
         this.s.push(series);
 
-        // update color scale
+        // update color scale TODO: move to parent/other component
         var colorScale = makeColorScale(palettes[0], this.s.length);
-
         // set colors
         this.s.forEach((s, i) => s.options.color = colorScale(i));
 
@@ -102,7 +116,7 @@ export default class Chart extends Component {
         // create containers for new series
         c.enter().append("g")
             .attr("class", "series")
-            .nodes().forEach((c) => this.drawSeries(d3.select(c)));
+            .nodes().forEach((c, i) => this.drawSeries(d3.select(c, i)));
 
         // remove absent series
         c.exit().remove();
@@ -114,29 +128,33 @@ export default class Chart extends Component {
     redraw() {
         this.drawAxes();
 
+        console.log("selection", this.planes.chart.selectAll(".series"));
         var c = this.planes.chart.selectAll(".series")
             .data(this.s, (s) => s.name);
+
+        console.log("parent", this.planes.chart);
+        console.log("data len", this.s.length);
+        console.log("selection", c);
+        console.log("node count: " + c.nodes().length);
 
         c.enter().append("g")
             .attr("class", "series")
             //.nodes().forEach((c) => this.drawSeries(c));
 
         c.exit().remove();
-
-        c.nodes().forEach((c) => this.drawSeries(c));
+        c.nodes().forEach((c, i) => this.drawSeries(d3.select(c), i));
 
         //this.s.forEach((s, i) => this.drawSeries(s, i));
     }
 
     updateColor(container) {
         var s = container.datum();
-        console.log("new color: " + s.options.color);
 
         container.selectAll("path")
             .attr("stroke", s.options.color);
 
-        console.log(container.selectAll("circle")
-            .attr("stroke", s.options.color));
+        container.selectAll("circle")
+            .attr("stroke", s.options.color);
     }
 
     drawAxes() {
@@ -176,7 +194,8 @@ export default class Chart extends Component {
             .call(yAxis);
     }
 
-    drawSeries(container) {
+    drawSeries(container, i) {
+        console.log("drawing series " + i)
         var s = container.datum(),
             data = s.data;
 
@@ -191,20 +210,36 @@ export default class Chart extends Component {
             .x((d) => x(accessorX(d)))
             .y((d) => y(accessorY(d)));
 
-        svg.append("path")
-            .datum(s.data)
+        // create path container if non-existant
+        var path = svg.select("path");
+        if(path.empty()) {
+            path = svg.append("path");
+        }
+
+        // draw path
+        path.datum(s.data)
             .attr("class", "line")
             .attr("stroke", s.options.color)
             .attr("d", line);
 
-        var g = this.rings = svg.selectAll()
-            .data(data).enter().append("g");
+        // create rings container if non-existant
+        var rings = svg.select(".rings");
+        if(rings.empty()) {
+            rings = svg.append("g")
+                .attr("class", "rings");
+        }
+
+        var g = rings.selectAll("circle")
+            .data(data);
+
+        g.exit().remove();
 
         //The markers on the line
-        g.append("circle")
+        g.enter().append("circle")
             .attr("class", "dot")
-            .attr("stroke", s.options.color)
             .attr("r", 2)
+            .merge(g)
+            .attr("stroke", s.options.color)
             .attr("cx", (d) => x(accessorX(d)))
             .attr("cy", (d) => y(accessorY(d)));
     }
