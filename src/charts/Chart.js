@@ -113,16 +113,16 @@ export default class Chart extends Component {
         // redraw axes
         this.drawAxes();
 
+        // remove absent series
+        c.exit().remove();
+
         // create containers for new series
         c.enter().append("g")
             .attr("class", "series")
             .nodes().forEach((c, i) => this.drawSeries(d3.select(c, i)));
 
-        // remove absent series
-        c.exit().remove();
-
-        // update colors of existing series
-        c.nodes().forEach((c) => this.updateColor(d3.select(c)));
+        c.merge(c) // update colors of existing series
+            .nodes().forEach((c) => this.updateColor(d3.select(c)));
     }
 
     redraw() {
@@ -137,14 +137,11 @@ export default class Chart extends Component {
         console.log("selection", c);
         console.log("node count: " + c.nodes().length);
 
+        c.exit().remove();
+
         c.enter().append("g")
             .attr("class", "series")
-            //.nodes().forEach((c) => this.drawSeries(c));
-
-        c.exit().remove();
-        c.nodes().forEach((c, i) => this.drawSeries(d3.select(c), i));
-
-        //this.s.forEach((s, i) => this.drawSeries(s, i));
+        .merge(c).nodes().forEach((c, i) => this.drawSeries(d3.select(c), i));
     }
 
     updateColor(container) {
@@ -172,26 +169,31 @@ export default class Chart extends Component {
         y.domain([0, d3.max(this.s, (s) => s.domain.y[1]) * 1.05]);
         //y.domain(d3.extent(data, function(d) { return d.value; }));
 
-        // Draw the y Grid lines
-        svg.select(".grid")
-            .call(d3.axisLeft(y)
-                    .tickSize(-width, 0, 0)
-                    .tickFormat("")
-            );
+        if(this.props.grid !== false) {
+            svg.select(".grid")
+                .call(d3.axisLeft(y)
+                        .tickSize(-width, 0, 0)
+                        .tickFormat("")
+                );
+        }
 
-        svg.select(".x.axis.major")
-            .attr("transform", "translate(0," + height + ")")
-            .call(xAxis)
-            .selectAll(".tick text")
-            .call(this.wrap, 35);
+        if(this.props.axisBottom !== false) {
+            svg.select(".x.axis.major")
+                .attr("transform", "translate(0," + height + ")")
+                .call(xAxis)
+                .selectAll(".tick text")
+                .call(this.wrap, 35);
 
-        svg.select(".x.axis.minor")
-            .attr("transform", "translate(0," + height + ")")
-            .call(xMinorAxis)
-            .selectAll("text").remove();
+            svg.select(".x.axis.minor")
+                .attr("transform", "translate(0," + height + ")")
+                .call(xMinorAxis)
+                .selectAll("text").remove();
+        }
 
-        svg.select(".y.axis")
-            .call(yAxis);
+        if(this.props.axisLeft !== false) {
+            svg.select(".y.axis")
+                .call(yAxis);
+        }
     }
 
     drawSeries(container, i) {
@@ -222,6 +224,10 @@ export default class Chart extends Component {
             .attr("stroke", s.options.color)
             .attr("d", line);
 
+        if(this.props.rings === false) {
+            return;
+        }
+
         // create rings container if non-existant
         var rings = svg.select(".rings");
         if(rings.empty()) {
@@ -238,7 +244,7 @@ export default class Chart extends Component {
         g.enter().append("circle")
             .attr("class", "dot")
             .attr("r", 2)
-            .merge(g)
+        .merge(g)
             .attr("stroke", s.options.color)
             .attr("cx", (d) => x(accessorX(d)))
             .attr("cy", (d) => y(accessorY(d)));
@@ -306,14 +312,6 @@ export default class Chart extends Component {
 
         ["grid", "x axis major", "x axis minor", "y axis major"].forEach((c) => axes.append("g").attr("class", c));
 
-        this.mouseLine = axes.append("g")
-            .attr("class", "mouseline")
-            .append("line")
-            .attr("x1", 0)
-            .attr("x2", 0)
-            .attr("y1", height)
-            .attr("y2", 0)
-
         //http://www.d3noob.org/2012/12/adding-axis-labels-to-d3js-graph.html
         svg.append("text")      // text label for the x-axis
             .attr("x", width / 2 )
@@ -338,14 +336,23 @@ export default class Chart extends Component {
             .style("text-decoration", "underline")
             .text("Calls per Minute on bets LS2");
 
-        this.mouseCatcher = mouseCatcher.append('rect')
-            .attr('width',width)
-            .attr('class','mouse-catch')
-            .attr('height',height)
-            .style('opacity',0)
-            .on('mousemove', (unk1, unk2, els) => this.graphMouseMove(els))
-            .on('mouseout', (unk1, unk2, els) => this.graphMouseOut(els));
+        if(this.props.hover !== false) {
+            this.mouseLine = axes.append("g")
+                .attr("class", "mouseline")
+                .append("line")
+                .attr("x1", 0)
+                .attr("x2", 0)
+                .attr("y1", height)
+                .attr("y2", 0)
 
+            this.mouseCatcher = mouseCatcher.append('rect')
+                .attr('width',width)
+                .attr('class','mouse-catch')
+                .attr('height',height)
+                .style('opacity',0)
+                .on('mousemove', (unk1, unk2, els) => this.graphMouseMove(els))
+                .on('mouseout', (unk1, unk2, els) => this.graphMouseOut(els));
+        }
 
         var onDataLoadComplete = (name, res) => {
             var data = res[0].metricValues;
@@ -447,8 +454,8 @@ export default class Chart extends Component {
         s.enter().append("circle")
             .attr('class','focusring')
             .attr('r',5)
-
-        s.attr('cx',(d) => this.scaleX(d.accessors.x(d.item)))
+        .merge(s)
+            .attr('cx',(d) => this.scaleX(d.accessors.x(d.item)))
             .attr('cy',(d) => this.scaleY(d.accessors.y(d.item)))
 
         s.exit().remove();
