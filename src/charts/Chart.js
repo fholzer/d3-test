@@ -128,14 +128,16 @@ export default class Chart extends Component {
     redraw() {
         this.drawAxes();
 
-        console.log("selection", this.planes.chart.selectAll(".series"));
+        //console.log("selection", this.planes.chart.selectAll(".series"));
         var c = this.planes.chart.selectAll(".series")
             .data(this.s, (s) => s.name);
 
+/*
         console.log("parent", this.planes.chart);
         console.log("data len", this.s.length);
         console.log("selection", c);
         console.log("node count: " + c.nodes().length);
+*/
 
         c.exit().remove();
 
@@ -197,12 +199,11 @@ export default class Chart extends Component {
     }
 
     drawSeries(container, i) {
-        console.log("drawing series " + i)
+        //console.log("drawing series " + i)
         var s = container.datum(),
             data = s.data;
 
         var svg = container,
-            height = this.height,
             accessorX = s.accessors.x,
             accessorY = s.accessors.y,
             x = this.scaleX,
@@ -461,6 +462,7 @@ export default class Chart extends Component {
             var nearest = s.find(x);
             d.push({
                 name: s.options && s.options.displayname || s.name,
+                date: s.accessors.x(nearest),
                 value: this.formatCount(s.accessors.y(nearest))
             });
         }
@@ -471,7 +473,7 @@ export default class Chart extends Component {
             .style("left", (d3.event.pageX + 20) + "px")
             .style("top", (d3.event.pageY + 40) + "px");
 
-        div.select("th").text(this.formatTime(x));
+        div.select("th").text(this.formatTime(d[0].date));
         var sel = div.select("tbody").selectAll("tr").data(d, (d) => d.name);
 
         sel.exit().remove();
