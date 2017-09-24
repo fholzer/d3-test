@@ -14,7 +14,7 @@
     stroke: #000;
     stroke-width: 1px;
     stroke-dasharray: 3.6;
-        stroke: steelblue;
+    stroke: steelblue;
     opacity: 0;
 }
 
@@ -49,6 +49,14 @@ div.tooltip {
   border: 0px;
   border-radius: 4px;
   pointer-events: none;
+}
+
+div.tooltip td.key {
+    text-align: left;
+}
+
+div.tooltip td.value {
+    text-align: right;
 }
 
 /* http://www.d3noob.org/2013/01/adding-grid-lines-to-d3js-graph.html */

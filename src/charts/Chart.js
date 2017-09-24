@@ -279,7 +279,7 @@ export default class Chart extends Component {
         //https://github.com/mbostock/d3/wiki/Time-Formatting
         //var formatTime = d3.time.format("%e %b");
         this.formatTime = d3.timeFormat("%Y-%m-%dT%H:%M:%S%Z");
-        this.formatCount = d3.format(",");
+        this.formatCount = d3.format(",.2f");
 
         this.planes = {};
 
@@ -288,6 +288,10 @@ export default class Chart extends Component {
         this.div = d3.select(this.divNode)
             .attr("class", "tooltip")
             .style("opacity", 0);
+
+        var tbl = this.div.append("table");
+        tbl.append("thead").append("tr").append("th").attr("colspan", 2);
+        tbl.append("tbody");
 
         var svg = this.planes.root = d3.select(this.svgNode)
             .attr("width", width + margin.left + margin.right)
@@ -409,28 +413,10 @@ export default class Chart extends Component {
     graphMouseMove(elements) {
         var xpos = d3.mouse(elements[0])[0];
         var xdate = this.scaleX.invert(xpos);
-        //console.log(this.rings.selectAll(".dots"))
+
         this.updateMouseLine(xpos);
-        //this.updateTip(xdate);
+        this.updateTip(xdate);
 		this.updatefocusRing(xdate);
-
-        /*
-
-        this.div.transition()
-            .duration(200)
-            .style("opacity", .9);
-        this.div.html("value: " + this.formatCount(this.accessorY(d)) + "<br/>" + this.formatTime(this.accessorX(d)))
-            .style("left", (d3.event.pageX - 20) + "px")
-            .style("top", (d3.event.pageY + 6) + "px");
-        //selects the horizontal dashed line in the group
-        d3.select(el.nextElementSibling).transition()
-            .duration(200)
-            .style("opacity", .9);
-        //selects the vertical dashed line in the group
-        d3.select(el.nextElementSibling.nextElementSibling).transition()
-            .duration(200)
-            .style("opacity", .9);
-            */
     }
 
     updatefocusRing(xdate) {
@@ -475,26 +461,31 @@ export default class Chart extends Component {
             var nearest = s.find(x);
             d.push({
                 name: s.options && s.options.displayname || s.name,
+                value: this.formatCount(s.accessors.y(nearest))
             });
         }
 
+        d = d.sort((a, b) => d3.ascending(a.name, b.name));
+
+        var div = this.div
+            .style("left", (d3.event.pageX + 20) + "px")
+            .style("top", (d3.event.pageY + 40) + "px");
+
+        div.select("th").text(this.formatTime(x));
+        var sel = div.select("tbody").selectAll("tr").data(d, (d) => d.name);
+
+        sel.exit().remove();
+
+        var tr = sel.enter().append("tr");
+        tr.append("td").attr("class", "key");
+        tr.append("td").attr("class", "value");
+
+        var mrg = sel.enter().merge(sel);
+        mrg.select(".key").text((d) => d.name);
+        mrg.select(".value").text((d) => d.value);
+
+        div.style("opacity", 0.7);
     }
-
-    /*
-    circleMouseOut(d) {
-        div.transition()
-            .duration(500)
-            .style("opacity", 0);
-
-        d3.select(this.nextElementSibling).transition()
-            .duration(500)
-            .style("opacity", 0);
-
-        d3.select(this.nextElementSibling.nextElementSibling).transition()
-            .duration(500)
-            .style("opacity", 0);
-    }
-*/
 
     updateMouseLine(x) {
         if(x === null) {
@@ -508,11 +499,9 @@ export default class Chart extends Component {
     }
 
 	graphMouseOut(e) {
-		this.updateMouseLine(null);
+        this.updateMouseLine(null);
         this.updatefocusRing(null);
-		/*
-		updateTip(null);
-        */
+        this.updateTip(null);
 	}
 
     componentWillUnmount() {
